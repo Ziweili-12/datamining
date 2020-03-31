@@ -1,0 +1,228 @@
+---
+title: "Asssignment4"
+author: "Ziwei Li"
+date: "3/7/2020"
+output:
+  html_document:
+    df_print: paged
+---
+
+### This question should be answered using the Weekly data set, which is part of the ISLR package. This data is similar in nature to the Smarket data from this chapter’s lab, except that it contains 1,089 weekly returns for 21 years, from the beginning of 1990 to the end of 2010. Write a data analysis report addressing the following problems.
+```{r}
+library(ISLR)
+```
+```{r}
+names(Weekly)
+```
+#### (a) Produce some numerical and graphical summaries of the Weekly data. Do there appear to any patterns?
+```{r}
+summary(Weekly)
+```
+
+```{r}
+corrplot::corrplot.mixed(cor(Weekly[,-9]))
+```
+```{r}
+# According to the corrplot, the relationship between year and volume seems to be strong. And there are no other patterns seem to be obvious.
+```
+
+#### (b) Use the full data set to perform a logistic regression with Direction as the response and the five lag variables plus Volumn as predictors. Use the summary function to print the results. Do any of the predictors appear to be statistically significant? If so, which ones?
+```{r}
+mod1 = glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume,data=Weekly,family=binomial)
+summary(mod1)
+```
+```{r}
+# Lag2 seems to be significant, because the p-value of Lag2 is less than 0.05.
+```
+
+#### (c) Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.
+```{r}
+mod.prob = predict(mod1,type='response')
+mod.pred = rep("Down",nrow(Weekly))
+mod.pred[mod.prob > 0.5] = 'Up'
+```
+
+```{r}
+table(mod.pred,Weekly$Direction)
+```
+
+```{r}
+(54+557)/nrow(Weekly)
+```
+
+```{r}
+# False positive is the type I error.
+# False negative is the type II error.
+```
+
+#### (d) Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).
+```{r}
+train = (Weekly$Year < 2009)
+test = Weekly[!train,]
+```
+
+```{r}
+mod2 = glm(Direction~Lag2,data=Weekly[train,],family=binomial)
+mod2.probs = predict(mod2,test,type='response')
+```
+
+```{r}
+mod2.pred = rep("Down",nrow(test))
+mod2.pred[mod2.probs>0.5] = 'Up'
+table(mod2.pred,test$Direction)
+```
+
+```{r}
+(9+56)/nrow(test)
+```
+
+#### (e) Repeat (d) using LDA.
+```{r}
+library(MASS)
+```
+
+```{r}
+mod.lda = lda(Direction~Lag2,data=Weekly[train,])
+mod.lda.pred = predict(mod.lda,test)
+table(mod.lda.pred$class,test$Direction)
+```
+
+```{r}
+(9+56)/nrow(test)
+```
+
+#### Repeat (d) using QDA.
+```{r}
+mod.qda = qda(Direction~Lag2,data=Weekly[train,])
+mod.qda.pred = predict(mod.qda,test)
+table(mod.qda.pred$class,test$Direction)
+```
+
+```{r}
+(61+0)/nrow(test)
+```
+
+#### (g) Which of these methods appears to provide the best results on this data?
+```{r}
+# The LDA and logistic regression both have the same result(0.625), which is bigger than the QDA's test error(0.59)
+```
+
+#### (h) Experiment with different combinations of predictors, including possible transformations and interactions, for each of the methods. Report the variables, method, and associated confusion matrix that appears to provide the best results on the held out data.
+```{r}
+# As for logistic regression, we may consdier the interaction between lag2 and lag4.
+mod12 = glm(Direction~Lag2+Lag4+Lag2*Lag4,data=Weekly[train,],family=binomial)
+mod12.prob = predict(mod12,test,type='response')
+mod12.pred = rep('Down',length(mod12.prob))
+mod12.pred[mod12.prob>0.5] = 'Up'
+table(mod12.pred,test$Direction)
+```
+```{r}
+(4+39)/nrow(test)
+```
+
+```{r}
+# As for LDA, we still consider the interaction between lag2 and lag4
+mod.lda2 = lda(Direction~Lag2+Lag4+Lag2*Lag4,data=Weekly[train,])
+mod.lda.pred2 = predict(mod.lda2,test)
+table(mod.lda.pred2$class,test$Direction)
+```
+```{r}
+(4+39)/nrow(test)
+```
+
+```{r}
+# As for QDA, we still consider the interaction beween Lag2 and Lag4
+mod.qda2 = qda(Direction~Lag2+Lag4+Lag2*Lag4,data=Weekly[train,])
+mod.qda.pred2 = predict(mod.qda2,test)
+table(mod.qda.pred2$class,test$Direction)
+```
+```{r}
+(33+14)/nrow(test)
+```
+
+```{r}
+# To sum up, if we use Lag2 and Lag4 and their interactions as predictiors, the LDA and Logistic regression's test error is the same and also lower than QDA's test error. Therefore, LDA and Logistic perform better than QDA.
+```
+
+
+###  In this problem, you will develop a model to predict whether a given car gets high or low gas mileage based on the Auto data set. Write a data analysis report addressing the following problems.
+```{r}
+summary(Auto)
+```
+
+#### (a) Create a binary variable, mpg01, that contains a 1 if mpg contains a value above its median, and a 0 if mpg contains a value below its median.
+```{r}
+Auto2 = Auto
+Auto2$mpg01 = ifelse(Auto2$mpg > median(Auto2$mpg),1,0)
+```
+
+```{r}
+summary(Auto2)
+```
+
+#### (b) Explore the data graphically in order to investigate the association between mgp01 and the other features. Which of the other features seem most likely to be useful in predicting mpg01? Scatterplots and boxplots may be useful tools to answer this question. Describe your findings.
+
+```{r}
+corrplot::corrplot.mixed(cor(Auto2[,c(-9)]))
+```
+
+```{r}
+# It might be useful to use cylinders, displacement, weight, and horsepower to predict mpg01 because their correlations are higher compared to the rest of the predcitors.
+```
+
+#### (c) Split the data into a training set and a test set.
+```{r}
+library(caTools)
+sample = sample.split(Auto2,SplitRatio = 0.75) 
+```
+```{r}
+train = subset(Auto2,sample ==TRUE) 
+test = subset(Auto2,sample == FALSE) 
+```
+
+#### (d) Perform LDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?
+```{r}
+library(MASS)
+mod.lda2 = lda(mpg01~cylinders+displacement+weight+horsepower,data=train)
+
+lda.pred = predict(mod.lda2,test,type='response')
+table(lda.pred$class,test$mpg01)
+```
+
+```{r}
+(8+2)/nrow(test)
+# Test error is 0.08547009
+```
+
+#### (e) Perform QDA on the training data in order to predict mpg01 using the variables that seemed most
+associated with mpg01 in (b). What is the test error of the model obtained?
+```{r}
+mod.qda2 = qda(mpg01~cylinders+displacement+weight+horsepower,data=train)
+
+qda.pred = predict(mod.lda2,test,type='response')
+table(qda.pred$class,test$mpg01)
+```
+
+```{r}
+(8+2)/nrow(test)
+```
+
+#### f) Perform logistic regression on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?
+```{r}
+mod.log = glm(mpg01~cylinders+displacement+weight+horsepower,data=train,family=binomial)
+log.pred = predict(mod.log,test,type='response')
+```
+
+```{r}
+mod.log.pred = rep(0,nrow(test))
+mod.log.pred[log.pred>0.5] = 1
+table(mod.log.pred,test$mpg01)
+```
+
+```{r}
+(6+4)/nrow(test)
+# The teset error is 0.08547009
+```
+
+
+
